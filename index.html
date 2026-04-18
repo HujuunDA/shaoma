@@ -3,116 +3,56 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>快递单号管理 (扫码版)</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+Myanmar:wght@400;700&display=swap" rel="stylesheet">
-  
+  <title>快递管理系统 - GitHub版</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
-  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
+    /* 极致简约风格 */
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    :root { --primary: #3f51b5; --primary-light: #5c6bc0; --primary-dark: #303f9f; --accent: #ff4081; --light: #f8fafc; --dark: #1a237e; --success: #4caf50; --error: #f44336; --gray: #78909c; --shadow: 0 4px 20px rgba(0, 0, 0, 0.1); --transition: all 0.3s ease; }
-    body { font-family: 'Noto Sans SC', 'Noto Sans Myanmar', sans-serif; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: var(--dark); line-height: 1.6; min-height: 100vh; padding: 0; }
-    .container { max-width: 900px; margin: 0 auto; padding: 20px; }
-    nav { background: rgba(255, 255, 255, 0.95); border-radius: 50px; max-width: 500px; margin: 30px auto; padding: 10px; box-shadow: var(--shadow); backdrop-filter: blur(5px); }
-    .nav-list { display: flex; justify-content: space-around; list-style: none; }
-    .nav-link { display: block; padding: 12px 20px; text-decoration: none; color: var(--dark); font-weight: 500; border-radius: 30px; transition: var(--transition); }
-    .nav-link.active, .nav-link:hover { background: linear-gradient(90deg, var(--primary), var(--primary-light)); color: white; }
-    .page-container { display: none; animation: fadeIn 0.5s ease forwards; }
-    .page-container.active { display: block; }
-    .page { background: white; border-radius: 20px; padding: 30px; margin-bottom: 40px; box-shadow: var(--shadow); }
-    h2 { font-size: 1.8rem; margin-bottom: 25px; color: var(--primary); text-align: center; position: relative; padding-bottom: 15px; }
-    h2:after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 80px; height: 4px; background: linear-gradient(90deg, var(--primary), var(--accent)); border-radius: 2px; }
-    .form-group { margin-bottom: 25px; }
-    label { display: block; margin-bottom: 10px; font-weight: 500; color: var(--primary-dark); }
-    input, textarea { width: 100%; padding: 15px; border: 2px solid #e8eaf6; border-radius: 12px; font-size: 1rem; background: #f8fafc; outline: none; transition: border 0.3s; }
-    input:focus { border-color: var(--primary); }
-    textarea { height: 150px; resize: vertical; }
+    body { font-family: -apple-system, sans-serif; background: #f2f2f7; color: #1c1c1e; padding-bottom: 50px; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    h2 { font-size: 20px; margin-bottom: 20px; text-align: center; color: #007aff; }
     
-    .btn-row { display: flex; gap: 10px; margin-bottom: 15px; }
-    .scan-trigger-btn { background: #673ab7 !important; }
-    .btn { display: block; width: 100%; padding: 16px; background: linear-gradient(90deg, var(--primary), var(--primary-light)); color: white; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: var(--transition); text-align: center; text-decoration: none; }
-    .btn:active { transform: scale(0.98); }
-
-    /* 全屏扫码层优化 */
-    #scanner-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 1000; flex-direction: column; }
+    /* 输入框与按钮 */
+    label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; }
+    input, textarea { width: 100%; padding: 12px; border: 1px solid #d1d1d6; border-radius: 10px; font-size: 16px; background: #fafafa; margin-bottom: 15px; outline: none; }
+    .btn { display: block; width: 100%; padding: 15px; border-radius: 12px; font-size: 16px; font-weight: 600; border: none; cursor: pointer; transition: 0.2s; text-align: center; }
+    .btn-primary { background: #007aff; color: white; }
+    .btn-scan { background: #5856d6; color: white; margin-bottom: 10px; }
+    
+    /* 全屏扫码界面 */
+    #scanner-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; flex-direction: column; }
+    .scan-header { padding: 20px; display: flex; justify-content: space-between; align-items: center; color: white; background: rgba(0,0,0,0.5); }
     #reader { flex: 1; width: 100%; }
-    .scanner-controls { padding: 15px 20px; background: rgba(0,0,0,0.85); display: flex; justify-content: space-between; align-items: center; color: white; }
-    .scan-count-badge { background: var(--accent); padding: 4px 12px; border-radius: 12px; font-weight: bold; }
-    .close-scan-btn { background: var(--success); padding: 8px 20px; border: none; color: white; border-radius: 8px; font-weight: bold; cursor: pointer; }
-
-    .record { background: var(--light); border-radius: 15px; padding: 20px; margin-bottom: 15px; border-left: 4px solid var(--primary); box-shadow: 0 2px 5px rgba(0,0,0,0.05); animation: fadeIn 0.3s ease; }
-    .status-indicator { display: flex; justify-content: center; margin-bottom: 20px; gap: 20px; flex-wrap: wrap; }
-    .status-item { background: rgba(255, 255, 255, 0.7); padding: 8px 15px; border-radius: 20px; font-size: 0.9rem; }
-    .search-tag { display: inline-block; background: white; border: 1px solid var(--primary-light); border-radius: 20px; padding: 8px 16px; margin: 0 8px 8px 0; font-size: 0.9rem; cursor: pointer; }
-    .loader { display: none; width: 40px; height: 40px; margin: 20px auto; border: 4px solid rgba(63, 81, 181, 0.2); border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .scan-tip { padding: 15px; color: #aaa; font-size: 12px; text-align: center; background: #000; }
+    .count-tag { background: #ff3b30; padding: 2px 8px; border-radius: 10px; font-size: 14px; }
   </style>
 </head>
 <body>
 
   <div id="scanner-overlay">
-    <div class="scanner-controls">
-      <div>已扫: <span id="scanCount" class="scan-count-badge">0</span></div>
-      <button class="close-scan-btn" id="finishScanBtn">完成并返回</button>
+    <div class="scan-header">
+      <span>已扫单号: <span id="scanCount" class="count-tag">0</span></span>
+      <button onclick="stopScanning()" style="background:#34c759; border:none; color:white; padding:8px 15px; border-radius:8px; font-weight:bold;">完成返回</button>
     </div>
     <div id="reader"></div>
-    <div style="color: #ccc; font-size: 13px; text-align: center; padding: 15px; background: #000;">
-        请对准条形码，保持 15cm 距离，识别成功会自动记录
-    </div>
+    <div class="scan-tip">保持 15-20cm 距离，对准条形码</div>
   </div>
 
   <div class="container">
-    <div class="status-indicator">
-      <div class="status-item"><i class="fas fa-box"></i> <span data-translate="totalCount">已存单号</span>: <span id="totalCount">...</span></div>
-      <div class="status-item">
-        <button id="exportExcelBtn" style="background:none; border:none; color:var(--primary); cursor:pointer;"><i class="fas fa-file-excel"></i> <span data-translate="exportBtn">导出</span></button>
-      </div>
-      <div class="status-item">
-        <span class="lang-btn" data-lang="cn" style="cursor:pointer">中文</span> / <span class="lang-btn" data-lang="mm" style="cursor:pointer">မြန်မာ</span>
-      </div>
-    </div>
-    
-    <nav>
-      <ul class="nav-list">
-        <li><a href="#" class="nav-link active" data-page="uploadPage"><i class="fas fa-upload"></i> <span data-translate="uploadNav">上传</span></a></li>
-        <li><a href="#" class="nav-link" data-page="searchPage"><i class="fas fa-search"></i> <span data-translate="searchNav">查询</span></a></li>
-      </ul>
-    </nav>
-    
-    <div id="uploadPage" class="page-container active">
-      <div class="page">
-        <h2><span data-translate="uploadTitle">单号上传</span></h2>
-        <div class="form-group">
-          <label><span data-translate="uploadLocation">上传地点</span>：</label>
-          <input type="text" id="uploader" data-translate-placeholder="uploaderPlaceholder" />
-        </div>
-        <div class="form-group">
-          <label><span data-translate="trackingNumbers">快递单号</span>：</label>
-          <div class="btn-row">
-            <button id="startScanBtn" class="btn scan-trigger-btn">
-                <i class="fas fa-camera"></i> <span data-translate="scanBtn">扫码添加</span>
-            </button>
-          </div>
-          <textarea id="trackingNumbers" data-translate-placeholder="trackingNumbersPlaceholder"></textarea>
-        </div>
-        <button id="uploadBtn" class="btn"><span data-translate="uploadBtn">上传</span></button>
-      </div>
-    </div>
-    
-    <div id="searchPage" class="page-container">
-      <div class="page">
-        <h2><span data-translate="searchTitle">单号查询</span></h2>
-        <div class="form-group">
-          <label><span data-translate="searchLabel">输入单号 (全号或后4位)</span>：</label>
-          <input type="text" id="searchKey" data-translate-placeholder="searchPlaceholder" />
-        </div>
-        <button id="searchBtn" class="btn"><span data-translate="searchBtn">搜索</span></button>
-        <div class="loader" id="searchLoader"></div>
-        <div id="searchHistory" style="margin-top: 15px;"></div>
-        <div id="searchResults" style="margin-top: 20px;"></div>
-      </div>
+    <div class="card">
+      <h2>单号上传</h2>
+      <label>上传地点</label>
+      <input type="text" id="uploader" placeholder="输入地点">
+      
+      <label>单号列表</label>
+      <button class="btn btn-scan" onclick="startScanning()">
+        <i class="fas fa-camera"></i> 点击开始扫码
+      </button>
+      <textarea id="trackingNumbers" placeholder="每行一个单号" rows="8"></textarea>
+      
+      <button class="btn btn-primary" id="uploadBtn">立即上传到数据库</button>
     </div>
   </div>
 
@@ -120,7 +60,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
 
   <script>
-    // Firebase 配置
+    // 你的 Firebase 配置
     const firebaseConfig = {
       apiKey: "AIzaSyAlPdadUk-zBlBLMJFL-UYDEq8xYUKzfD4",
       authDomain: "antkuaidi.firebaseapp.com",
@@ -130,47 +70,25 @@
       messagingSenderId: "416372968766",
       appId: "1:416372968766:web:2b80237f2e774f1067f06f"
     };
-
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     const recordsRef = db.ref('tracking_records');
 
-    const translations = {
-      cn: { scanBtn: "摄像头扫码", totalCount: "已存单号", uploadNav: "上传", searchNav: "查询", uploadTitle: "单号上传", uploadLocation: "地点", uploaderPlaceholder: "输入地点", trackingNumbers: "快递单号", trackingNumbersPlaceholder: "每行一个单号", uploadBtn: "上传", searchTitle: "单号查询", searchLabel: "输入单号 (全号或后4位)", searchPlaceholder: "输入单号进行查询", searchBtn: "搜索", noResults: "无结果", saveSuccess: "上传成功", exportBtn: "导出 Excel", minDigits: "最少输入4位" },
-      mm: { scanBtn: "ကုဒ်ဖတ်ရန်", totalCount: "ကုဒ်နံပါတ်များ", uploadNav: "တင်ရန်", searchNav: "ရှာရန်", uploadTitle: "ကုဒ် ထဲရန်", uploadLocation: "နေရာ", uploaderPlaceholder: "နေရာ ထည့်ပါ", trackingNumbers: "ကုဒ်များ", trackingNumbersPlaceholder: "တစ်ကြောင်းတစ်ခု", uploadBtn: "တင်မည်", searchTitle: "ကုဒ် ရှာရန်", searchLabel: "နံပါတ် (သို့) နောက်ဆုံး ၄ လုံး", searchPlaceholder: "ရှာဖွေရန် ထည့်ပါ", searchBtn: "ရှာဖွေရန်", noResults: "မရှိပါ", saveSuccess: "အောင်မြင်ပါပြီ", exportBtn: "Excel ထုတ်ရန်", minDigits: "၄ လုံး အနည်းဆုံး ထည့်ပါ" }
-    };
-
-    let currentLang = localStorage.getItem('preferredLanguage') || 'cn';
-    function t(key) { return translations[currentLang][key] || key; }
-
-    function translatePage() {
-      document.querySelectorAll('[data-translate]').forEach(el => el.textContent = t(el.getAttribute('data-translate')));
-      document.querySelectorAll('[data-translate-placeholder]').forEach(el => el.placeholder = t(el.getAttribute('data-translate-placeholder')));
-    }
-
-    // --- 扫码功能增强版 ---
     let html5QrCode;
-    let scannedList = new Set(); 
+    let tempCodes = new Set();
 
-    document.getElementById('startScanBtn').addEventListener('click', async () => {
+    // 启动扫码
+    async function startScanning() {
         document.getElementById('scanner-overlay').style.display = 'flex';
-        scannedList.clear();
-        updateScanCount();
-        
-        // 强制初始化库
+        tempCodes.clear();
+        document.getElementById('scanCount').innerText = '0';
+
         html5QrCode = new Html5Qrcode("reader");
         
-        // 针对条形码的长方形框配置
-        const config = { 
-            fps: 15, 
-            qrbox: { width: 320, height: 160 }, // 加宽框以适应条形码
-            aspectRatio: 1.0,
-            // 明确指定支持的格式，提高快递单识别速度
-            formatsToSupport: [ 
-                Html5QrcodeSupportedFormats.CODE_128, 
-                Html5QrcodeSupportedFormats.CODE_39,
-                Html5QrcodeSupportedFormats.QR_CODE 
-            ]
+        const config = {
+            fps: 20, // 提高帧率
+            qrbox: { width: 300, height: 150 }, // 针对条形码的长方形框
+            aspectRatio: 1.0
         };
 
         try {
@@ -178,151 +96,61 @@
                 { facingMode: "environment" }, 
                 config, 
                 (decodedText) => {
-                    if(!scannedList.has(decodedText)) {
-                        scannedList.add(decodedText);
-                        updateScanCount();
-                        // 震动提醒
-                        if (navigator.vibrate) navigator.vibrate(100);
+                    if(!tempCodes.has(decodedText)) {
+                        tempCodes.add(decodedText);
+                        document.getElementById('scanCount').innerText = tempCodes.size;
+                        if(navigator.vibrate) navigator.vibrate(100); // 震动反馈
                     }
                 }
             );
         } catch (err) {
-            console.error(err);
-            alert("错误：请确保在 Safari 或 Chrome 中打开，且链接为 HTTPS。");
-            closeScanner();
+            alert("摄像头开启失败：请确认是 HTTPS 环境且已授予权限。");
+            stopScanning();
         }
-    });
-
-    document.getElementById('finishScanBtn').addEventListener('click', () => {
-        const textarea = document.getElementById('trackingNumbers');
-        const currentVal = textarea.value.trim();
-        const newVal = Array.from(scannedList).join('\n');
-        textarea.value = currentVal ? (currentVal + '\n' + newVal) : newVal;
-        closeScanner();
-    });
-
-    function updateScanCount() {
-        document.getElementById('scanCount').textContent = scannedList.size;
     }
 
-    function closeScanner() {
+    // 停止并填入数据
+    async function stopScanning() {
         if (html5QrCode) {
-            html5QrCode.stop().then(() => {
-                document.getElementById('scanner-overlay').style.display = 'none';
-            }).catch(() => {
-                document.getElementById('scanner-overlay').style.display = 'none';
-            });
+            await html5QrCode.stop().catch(e => console.log(e));
         }
-    }
-    // --- 扫码结束 ---
-
-    // 原有数据库逻辑
-    recordsRef.on('value', snap => {
-      document.getElementById('totalCount').textContent = snap.val() ? Object.keys(snap.val()).length : 0;
-    });
-
-    document.getElementById('uploadBtn').addEventListener('click', async function() {
-      const uploader = document.getElementById('uploader').value.trim();
-      const text = document.getElementById('trackingNumbers').value.trim();
-      if (!uploader || !text) return alert(t('uploaderPlaceholder'));
-      this.disabled = true;
-      const nums = [...new Set(text.split('\n').map(s => s.trim()).filter(s => s))];
-      const now = new Date().toLocaleString();
-      try {
-        const snap = await recordsRef.once('value');
-        const existing = snap.val() ? Object.values(snap.val()).map(r => String(r.number)) : [];
-        for (let num of nums) {
-          if (!existing.includes(num)) {
-            const last4 = num.length >= 4 ? num.slice(-4) : num;
-            await recordsRef.push({ number: num, last4: last4, uploader: uploader, upload_time: now });
-          }
-        }
-        alert(t('saveSuccess'));
-        document.getElementById('trackingNumbers').value = '';
-      } catch (e) { alert("上传失败"); }
-      finally { this.disabled = false; }
-    });
-
-    document.getElementById('searchBtn').addEventListener('click', performSearch);
-    async function performSearch() {
-      let inputVal = document.getElementById('searchKey').value.trim();
-      if (inputVal.length < 4) return alert(t('minDigits'));
-      const queryKey = inputVal.length > 4 ? inputVal.slice(-4) : inputVal;
-      saveSearchHistory(inputVal);
-      const resDiv = document.getElementById('searchResults');
-      resDiv.innerHTML = "";
-      document.getElementById('searchLoader').style.display = 'block';
-      try {
-        const snap = await recordsRef.orderByChild('last4').equalTo(queryKey).once('value');
-        const data = snap.val() || {};
-        let results = Object.values(data);
-        if (inputVal.length > 4) {
-          results = results.filter(item => String(item.number).includes(inputVal));
-        }
-        document.getElementById('searchLoader').style.display = 'none';
-        if (results.length === 0) {
-          resDiv.innerHTML = `<div class="record">${t('noResults')}</div>`;
-        } else {
-          results.reverse().forEach(r => {
-            const div = document.createElement('div');
-            div.className = 'record';
-            div.innerHTML = `<div><strong>单号:</strong> ${r.number}</div>
-                             <div><strong>地点:</strong> ${r.uploader}</div>
-                             <div><strong>时间:</strong> ${r.upload_time}</div>`;
-            resDiv.appendChild(div);
-          });
-        }
-      } catch (e) {
-        document.getElementById('searchLoader').style.display = 'none';
-        alert("查询失败");
-      }
+        const textarea = document.getElementById('trackingNumbers');
+        const existing = textarea.value.trim();
+        const joined = Array.from(tempCodes).join('\n');
+        textarea.value = existing ? existing + '\n' + joined : joined;
+        document.getElementById('scanner-overlay').style.display = 'none';
     }
 
-    document.getElementById('exportExcelBtn').addEventListener('click', async function() {
-      const snap = await recordsRef.once('value');
-      const data = snap.val();
-      if (!data) return;
-      let csv = "\uFEFF单号,地点,时间\n";
-      Object.values(data).reverse().forEach(r => { csv += `${r.number},${r.uploader},${r.upload_time}\n`; });
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `快递_${new Date().toLocaleDateString()}.csv`;
-      a.click();
-    });
-
-    function saveSearchHistory(key) {
-      let history = JSON.parse(localStorage.getItem('searchHistory') || '[]');
-      history = [key, ...history.filter(i => i !== key)].slice(0, 5);
-      localStorage.setItem('searchHistory', JSON.stringify(history));
-      displayHistory();
-    }
-    function displayHistory() {
-      const container = document.getElementById('searchHistory');
-      const history = JSON.parse(localStorage.getItem('searchHistory') || '[]');
-      container.innerHTML = history.map(h => `<span class="search-tag" onclick="fillSearch('${h}')">${h}</span>`).join('');
-    }
-    window.fillSearch = function(val) { document.getElementById('searchKey').value = val; performSearch(); };
-
-    document.querySelectorAll('.nav-link').forEach(l => {
-      l.addEventListener('click', function(e) {
-        e.preventDefault();
-        document.querySelectorAll('.nav-link, .page-container').forEach(el => el.classList.remove('active'));
-        this.classList.add('active');
-        document.getElementById(this.dataset.page).classList.add('active');
-      });
-    });
-
-    document.querySelectorAll('.lang-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        currentLang = this.dataset.lang;
-        localStorage.setItem('preferredLanguage', currentLang);
-        translatePage();
-      });
-    });
-
-    translatePage();
-    displayHistory();
+    // 上传逻辑
+    document.getElementById('uploadBtn').onclick = async function() {
+        const loc = document.getElementById('uploader').value.trim();
+        const codes = document.getElementById('trackingNumbers').value.trim();
+        if(!loc || !codes) return alert("请填写地点和单号");
+        
+        this.disabled = true;
+        this.innerText = "上传中...";
+        
+        const list = codes.split('\n').map(s => s.trim()).filter(s => s);
+        const now = new Date().toLocaleString();
+        
+        try {
+            for(let num of list) {
+                await recordsRef.push({
+                    number: num,
+                    last4: num.slice(-4),
+                    uploader: loc,
+                    upload_time: now
+                });
+            }
+            alert("上传成功！");
+            document.getElementById('trackingNumbers').value = "";
+        } catch(e) {
+            alert("失败: " + e.message);
+        } finally {
+            this.disabled = false;
+            this.innerText = "立即上传到数据库";
+        }
+    };
   </script>
 </body>
 </html>
