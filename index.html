@@ -1,62 +1,74 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>二维码扫描测试</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>极速扫码拍照一体化</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        #reader { width: 100%; max-width: 500px; border: 1px solid #ccc; border-radius: 8px; }
-        #result { margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 4px; word-break: break-all; width: 100%; max-width: 500px; }
-        .btn-group { margin-bottom: 20px; }
-        button { padding: 10px 20px; font-size: 16px; cursor: pointer; border-radius: 5px; border: none; background: #007aff; color: white; }
+        body { font-family: sans-serif; margin: 0; padding: 10px; background: #f4f4f4; }
+        #reader { width: 100%; border-radius: 10px; overflow: hidden; background: #000; }
+        #result-box { margin-top: 15px; padding: 10px; background: white; border-radius: 8px; }
+        .photo-preview { width: 100px; height: 100px; object-fit: cover; margin: 5px; border: 2px solid #007bff; }
+        h3 { color: #333; margin-top: 0; }
     </style>
 </head>
 <body>
 
-    <h2>扫码测试</h2>
+    <div id="reader"></div>
     
-    <div class="btn-group">
-        <button onclick="startScan()">开启摄像头</button>
-        <button onclick="stopScan()" style="background:#ff3b30;">停止</button>
+    <div id="result-box">
+        <h3>扫描结果 (自动拍照)</h3>
+        <div id="scanned-result">等待扫描...</div>
+        <div id="photo-container"></div>
     </div>
 
-    <div id="reader"></div>
-    <div id="result">扫描结果将显示在这里</div>
+<script>
+    const html5QrCode = new Html5Qrcode("reader");
+    const photoContainer = document.getElementById('photo-container');
+    const resultText = document.getElementById('scanned-result');
 
-    <script>
-        let html5QrCode;
+    // 1. 核心配置：模仿快递扫描频率
+    const config = { 
+        fps: 25,        // 每秒帧数，越高越顺滑
+        qrbox: { width: 250, height: 250 }, // 扫描框大小
+        aspectRatio: 1.0 
+    };
 
-        function onScanSuccess(decodedText, decodedResult) {
-            // 扫描成功逻辑
-            document.getElementById('result').innerText = "结果: " + decodedText;
-            // 可以在这里停止扫描
-            // stopScan(); 
-        }
+    // 2. 扫码成功后的动作
+    const onScanSuccess = (decodedText, decodedResult) => {
+        // 播放提示音或震动
+        if (navigator.vibrate) navigator.vibrate(100);
 
-        function onScanFailure(error) {
-            // 扫描失败通常是因为没对准或光线不好，通常不处理
-        }
+        resultText.innerText = "单号: " + decodedText;
 
-        function startScan() {
-            html5QrCode = new Html5Qrcode("reader");
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        // 【关键】自动拍照逻辑：直接从当前视频流抓取画面
+        const video = document.querySelector('#reader video');
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        
+        // 生成照片
+        const imgData = canvas.toDataURL("image/jpeg");
+        const img = document.createElement('img');
+        img.src = imgData;
+        img.className = 'photo-preview';
+        photoContainer.prepend(img); // 把新照片放在最前面
 
-            // 使用后置摄像头
-            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess)
-            .catch(err => {
-                document.getElementById('result').innerText = "错误: " + err;
-            });
-        }
+        console.log("已自动保存单号及照片:", decodedText);
+        
+        // 提示：此处可以加入发送数据到 Firebase 的代码
+    };
 
-        function stopScan() {
-            if (html5QrCode) {
-                html5QrCode.stop().then(() => {
-                    html5QrCode.clear();
-                }).catch(err => console.error(err));
-            }
-        }
-    </script>
+    // 3. 启动摄像头
+    html5QrCode.start(
+        { facingMode: "environment" }, // 强制使用后置摄像头
+        config, 
+        onScanSuccess
+    ).catch(err => {
+        alert("摄像头启动失败，请检查权限或是否使用 HTTPS 访问");
+    });
+</script>
 </body>
 </html>
