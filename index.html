@@ -1,74 +1,144 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>极速扫码拍照一体化</title>
+    <title>快递级扫码系统 Pro</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <style>
-        body { font-family: sans-serif; margin: 0; padding: 10px; background: #f4f4f4; }
-        #reader { width: 100%; border-radius: 10px; overflow: hidden; background: #000; }
-        #result-box { margin-top: 15px; padding: 10px; background: white; border-radius: 8px; }
-        .photo-preview { width: 100px; height: 100px; object-fit: cover; margin: 5px; border: 2px solid #007bff; }
-        h3 { color: #333; margin-top: 0; }
+        :root { --success: #28a745; --primary: #007AFF; }
+        body { font-family: -apple-system; margin: 0; background: #1a1a1a; color: white; }
+        
+        /* 扫描窗口优化 */
+        #reader { width: 100%; background: #000; position: relative; }
+        
+        /* 成功时的闪烁特效 */
+        .scan-success-flash {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            border: 5px solid var(--success); box-sizing: border-box;
+            z-index: 10; display: none; pointer-events: none;
+        }
+
+        .controls { padding: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #222; }
+        button { padding: 15px; border: none; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; }
+        .btn-save { background: var(--success); color: white; }
+        .btn-del { background: #444; color: #ccc; }
+
+        .stats { padding: 10px 15px; background: #333; display: flex; justify-content: space-between; font-size: 14px; }
+
+        #list { padding: 10px; height: 300px; overflow-y: auto; }
+        .card { 
+            background: #2c2c2c; margin-bottom: 10px; padding: 10px; 
+            border-radius: 8px; display: flex; align-items: center; gap: 15px;
+        }
+        .card img { width: 60px; height: 45px; border-radius: 4px; object-fit: cover; border: 1px solid #444; }
+        .card-info { flex: 1; }
+        .card-code { font-family: monospace; font-size: 18px; color: #58a6ff; display: block; }
+        .card-time { font-size: 12px; color: #888; }
     </style>
 </head>
 <body>
 
-    <div id="reader"></div>
-    
-    <div id="result-box">
-        <h3>扫描结果 (自动拍照)</h3>
-        <div id="scanned-result">等待扫描...</div>
-        <div id="photo-container"></div>
-    </div>
+<div id="reader">
+    <div id="flash" class="scan-success-flash"></div>
+</div>
+
+<div class="stats">
+    <span>当前批次: <strong id="count">0</strong> 条</span>
+    <span id="status" style="color: #888;">就绪</span>
+</div>
+
+<div class="controls">
+    <button class="btn-save" onclick="exportData()">导出 Excel</button>
+    <button class="btn-del" onclick="clearData()">清空今日数据</button>
+</div>
+
+<div id="list"></div>
+
+<audio id="beepAudio" preload="auto">
+    <source src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" type="audio/mpeg">
+</audio>
 
 <script>
-    const html5QrCode = new Html5Qrcode("reader");
-    const photoContainer = document.getElementById('photo-container');
-    const resultText = document.getElementById('scanned-result');
+    let results = JSON.parse(localStorage.getItem('my_scans') || '[]');
+    let lastCode = "";
+    let lastTime = 0;
+    const beep = document.getElementById('beepAudio');
+    const scanner = new Html5Qrcode("reader");
 
-    // 1. 核心配置：模仿快递扫描频率
-    const config = { 
-        fps: 25,        // 每秒帧数，越高越顺滑
-        qrbox: { width: 250, height: 250 }, // 扫描框大小
-        aspectRatio: 1.0 
-    };
+    function render() {
+        document.getElementById('count').innerText = results.length;
+        const listEl = document.getElementById('list');
+        listEl.innerHTML = results.slice().reverse().map(item => `
+            <div class="card">
+                <img src="${item.img}">
+                <div class="card-info">
+                    <span class="card-code">${item.code}</span>
+                    <span class="card-time">${item.time}</span>
+                </div>
+            </div>
+        `).join('');
+        localStorage.setItem('my_scans', JSON.stringify(results));
+    }
 
-    // 2. 扫码成功后的动作
-    const onScanSuccess = (decodedText, decodedResult) => {
-        // 播放提示音或震动
-        if (navigator.vibrate) navigator.vibrate(100);
+    const onScanSuccess = (text) => {
+        const now = Date.now();
+        // 核心优化：防重复逻辑 (同一号码3秒内不扫第二次)
+        if (text === lastCode && (now - lastTime < 3000)) return;
 
-        resultText.innerText = "单号: " + decodedText;
+        lastCode = text;
+        lastTime = now;
 
-        // 【关键】自动拍照逻辑：直接从当前视频流抓取画面
+        // 1. 声音反馈
+        beep.play();
+
+        // 2. 震动反馈 (iPhone 需要在静音模式关闭时有效)
+        if (navigator.vibrate) navigator.vibrate(80);
+
+        // 3. 视觉闪烁反馈
+        const flash = document.getElementById('flash');
+        flash.style.display = 'block';
+        setTimeout(() => flash.style.display = 'none', 150);
+
+        // 4. 自动拍照抓帧
         const video = document.querySelector('#reader video');
         const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0);
+        canvas.width = 160; canvas.height = 120;
+        canvas.getContext('2d').drawImage(video, 0, 0, 160, 120);
         
-        // 生成照片
-        const imgData = canvas.toDataURL("image/jpeg");
-        const img = document.createElement('img');
-        img.src = imgData;
-        img.className = 'photo-preview';
-        photoContainer.prepend(img); // 把新照片放在最前面
+        // 5. 存储
+        results.push({
+            code: text,
+            time: new Date().toLocaleTimeString(),
+            img: canvas.toDataURL('image/jpeg', 0.5)
+        });
 
-        console.log("已自动保存单号及照片:", decodedText);
-        
-        // 提示：此处可以加入发送数据到 Firebase 的代码
+        render();
     };
 
-    // 3. 启动摄像头
-    html5QrCode.start(
-        { facingMode: "environment" }, // 强制使用后置摄像头
-        config, 
+    function exportData() {
+        if (results.length === 0) return alert("暂无数据");
+        const ws = XLSX.utils.json_to_sheet(results.map(x => ({ "单号": x.code, "时间": x.time })));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Scans");
+        XLSX.writeFile(wb, `扫码记录_${new Date().toLocaleDateString()}.xlsx`);
+    }
+
+    function clearData() {
+        if(confirm("确定清空吗？")) { results = []; render(); }
+    }
+
+    // 启动摄像头：优化对焦和帧率
+    scanner.start(
+        { facingMode: "environment" },
+        { fps: 25, qrbox: { width: 260, height: 180 } },
         onScanSuccess
-    ).catch(err => {
-        alert("摄像头启动失败，请检查权限或是否使用 HTTPS 访问");
+    ).catch(() => {
+        document.getElementById('status').innerText = "错误：请检查 HTTPS 或权限";
     });
+
+    render();
 </script>
 </body>
 </html>
