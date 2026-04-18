@@ -1,584 +1,68 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-  <title>快递单号管理系统 - 扫码版</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
-  <!-- 引入 ZXing 扫码库 -->
-  <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
-  
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    :root { --primary: #3f51b5; --primary-light: #5c6bc0; --accent: #ff4081; --success: #4caf50; --error: #f44336; --shadow: 0 4px 20px rgba(0, 0, 0, 0.1); }
-    body { font-family: 'Noto Sans SC', sans-serif; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); min-height: 100vh; padding: 0; }
-    .container { max-width: 900px; margin: 0 auto; padding: 15px; }
-    
-    /* 状态栏 */
-    .status-bar { background: rgba(255,255,255,0.95); border-radius: 30px; padding: 10px 20px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; box-shadow: var(--shadow); }
-    .total-badge { background: var(--primary); color: white; padding: 5px 15px; border-radius: 30px; font-size: 14px; }
-    .btn-icon { background: none; border: none; font-size: 20px; cursor: pointer; padding: 8px; border-radius: 50%; transition: 0.2s; }
-    .btn-icon:hover { background: #e0e0e0; }
-    .lang-btn { cursor: pointer; padding: 5px 10px; border-radius: 20px; }
-    .lang-btn:hover { background: #e0e0e0; }
-    
-    /* 导航栏 */
-    nav { background: white; border-radius: 50px; padding: 8px; margin-bottom: 20px; box-shadow: var(--shadow); }
-    .nav-list { display: flex; justify-content: space-around; list-style: none; }
-    .nav-link { display: block; padding: 10px 20px; text-decoration: none; color: #333; font-weight: 500; border-radius: 30px; transition: 0.3s; }
-    .nav-link.active, .nav-link:hover { background: linear-gradient(90deg, var(--primary), var(--primary-light)); color: white; }
-    
-    .page-container { display: none; animation: fadeIn 0.3s ease; }
-    .page-container.active { display: block; }
-    .page { background: white; border-radius: 20px; padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow); }
-    h2 { font-size: 1.5rem; margin-bottom: 20px; color: var(--primary); text-align: center; }
-    
-    /* ========== 扫码区域 ========== */
-    .scanner-container { position: relative; width: 100%; border-radius: 16px; overflow: hidden; background: #000; margin-bottom: 15px; }
-    #preview { width: 100%; height: auto; min-height: 300px; background: #000; object-fit: cover; }
-    .scan-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.7)); padding: 15px; text-align: center; }
-    .scan-status { color: white; font-size: 14px; margin-bottom: 10px; }
-    .scan-status.success { color: #4caf50; }
-    .scan-status.error { color: #f44336; }
-    
-    .btn-scan { background: linear-gradient(90deg, var(--primary), var(--primary-light)); color: white; border: none; padding: 12px 20px; border-radius: 30px; font-size: 16px; font-weight: bold; cursor: pointer; margin: 5px; transition: 0.2s; }
-    .btn-scan:active { transform: scale(0.97); }
-    .btn-stop { background: #f44336; }
-    .btn-clear { background: #ff9800; }
-    
-    .camera-select { width: 100%; padding: 10px; border-radius: 12px; border: 1px solid #ddd; margin-bottom: 10px; }
-    
-    /* 连续扫码开关 */
-    .toggle-switch { display: flex; align-items: center; justify-content: space-between; background: #f5f5f5; padding: 10px 15px; border-radius: 30px; margin: 10px 0; }
-    .toggle-label { font-weight: 500; }
-    .toggle-checkbox { width: 50px; height: 24px; background: #ccc; border-radius: 24px; position: relative; cursor: pointer; transition: 0.3s; }
-    .toggle-checkbox.active { background: var(--primary); }
-    .toggle-checkbox:after { content: ''; width: 20px; height: 20px; background: white; border-radius: 50%; position: absolute; top: 2px; left: 4px; transition: 0.3s; }
-    .toggle-checkbox.active:after { left: 26px; }
-    
-    /* 扫码结果列表 */
-    .scan-list { max-height: 300px; overflow-y: auto; margin-top: 15px; }
-    .scan-item { background: var(--light, #f8fafc); border-radius: 12px; padding: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid var(--primary); }
-    .scan-number { font-family: monospace; font-size: 16px; font-weight: bold; word-break: break-all; flex: 1; }
-    .scan-time { font-size: 11px; color: #999; }
-    .img-preview { width: 50px; height: 50px; background: #eee; border-radius: 8px; margin-left: 10px; cursor: pointer; object-fit: cover; }
-    
-    /* 上传区域 */
-    .upload-area { margin-top: 20px; }
-    textarea, input { width: 100%; padding: 12px; border: 2px solid #e8eaf6; border-radius: 12px; font-size: 14px; margin-bottom: 10px; }
-    .btn { width: 100%; padding: 14px; background: linear-gradient(90deg, var(--primary), var(--primary-light)); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
-    
-    /* 查询结果 */
-    .record { background: #f8fafc; border-radius: 12px; padding: 12px; margin-bottom: 10px; border-left: 3px solid var(--primary); }
-    
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    
-    /* 图片预览弹窗 */
-    .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center; }
-    .modal.active { display: flex; }
-    .modal img { max-width: 90%; max-height: 90%; border-radius: 10px; }
-    .modal-close { position: absolute; top: 20px; right: 30px; color: white; font-size: 30px; cursor: pointer; }
-  </style>
+    <title>快递扫码测试</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; margin: 0; padding: 20px; background: #f4f4f4; }
+        #reader { width: 100%; max-width: 500px; margin: auto; background: white; border-radius: 8px; overflow: hidden; }
+        #result-container { margin-top: 20px; padding: 15px; background: white; border-radius: 8px; display: none; }
+        img { width: 100%; max-width: 300px; border: 2px solid #007aff; margin-top: 10px; }
+        h2 { color: #007aff; }
+    </style>
 </head>
 <body>
-<div class="container">
-  <!-- 状态栏 -->
-  <div class="status-bar">
-    <div class="total-badge"><i class="fas fa-box"></i> <span id="totalCount">0</span> 个单号</div>
-    <div>
-      <button id="exportExcelBtn" class="btn-icon" title="导出"><i class="fas fa-file-excel"></i></button>
-      <span class="lang-btn" data-lang="cn" style="cursor:pointer">中文</span> / 
-      <span class="lang-btn" data-lang="mm" style="cursor:pointer">မြန်မာ</span>
-    </div>
-  </div>
-  
-  <!-- 导航 -->
-  <nav>
-    <ul class="nav-list">
-      <li><a href="#" class="nav-link active" data-page="scanPage"><i class="fas fa-qrcode"></i> <span data-translate="scanNav">扫码</span></a></li>
-      <li><a href="#" class="nav-link" data-page="uploadPage"><i class="fas fa-upload"></i> <span data-translate="uploadNav">上传</span></a></li>
-      <li><a href="#" class="nav-link" data-page="searchPage"><i class="fas fa-search"></i> <span data-translate="searchNav">查询</span></a></li>
-    </ul>
-  </nav>
-  
-  <!-- ========== 扫码页面 ========== -->
-  <div id="scanPage" class="page-container active">
-    <div class="page">
-      <h2><i class="fas fa-camera"></i> <span data-translate="scanTitle">扫码 + 自动存图</span></h2>
-      
-      <!-- 连续扫码开关 -->
-      <div class="toggle-switch">
-        <span class="toggle-label"><i class="fas fa-infinity"></i> <span data-translate="continuousMode">连续扫码模式</span></span>
-        <div id="continuousToggle" class="toggle-checkbox active"></div>
-      </div>
-      
-      <!-- 摄像头选择 -->
-      <select id="cameraSelect" class="camera-select"></select>
-      
-      <!-- 视频预览 -->
-      <div class="scanner-container">
-        <video id="preview" autoplay playsinline muted></video>
-        <div class="scan-overlay">
-          <div id="scanStatus" class="scan-status">⚡ 点击"开始扫码"</div>
-        </div>
-      </div>
-      
-      <!-- 控制按钮 -->
-      <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-        <button id="startScanBtn" class="btn-scan" style="flex:2"><i class="fas fa-play"></i> <span data-translate="startScan">开始扫码</span></button>
-        <button id="stopScanBtn" class="btn-scan btn-stop" style="flex:1"><i class="fas fa-stop"></i> <span data-translate="stopScan">停止</span></button>
-        <button id="clearListBtn" class="btn-scan btn-clear" style="flex:1"><i class="fas fa-trash"></i> <span data-translate="clearList">清空</span></button>
-      </div>
-      
-      <!-- 上传地点 -->
-      <input type="text" id="scanUploader" placeholder="上传地点 (如: 上海网点)" style="margin-bottom: 10px;" />
-      
-      <!-- 扫码结果列表 -->
-      <div style="font-weight: bold; margin: 10px 0;"><span data-translate="scanResults">扫码记录</span> (<span id="scanCount">0</span>)</div>
-      <div id="scanResultList" class="scan-list"></div>
-      
-      <!-- 批量上传按钮 -->
-      <button id="batchUploadBtn" class="btn" style="margin-top: 15px;"><i class="fas fa-cloud-upload-alt"></i> <span data-translate="batchUpload">上传所有扫码记录</span></button>
-    </div>
-  </div>
-  
-  <!-- 上传页面 -->
-  <div id="uploadPage" class="page-container">
-    <div class="page">
-      <h2><span data-translate="uploadTitle">单号上传</span></h2>
-      <input type="text" id="uploader" placeholder="上传地点" />
-      <textarea id="trackingNumbers" placeholder="每行一个单号" rows="5"></textarea>
-      <button id="uploadBtn" class="btn"><span data-translate="uploadBtn">上传</span></button>
-    </div>
-  </div>
-  
-  <!-- 查询页面 -->
-  <div id="searchPage" class="page-container">
-    <div class="page">
-      <h2><span data-translate="searchTitle">单号查询</span></h2>
-      <input type="text" id="searchKey" placeholder="输入单号 (全号或后4位)" />
-      <button id="searchBtn" class="btn" style="margin-top: 10px;"><span data-translate="searchBtn">搜索</span></button>
-      <div id="searchHistory" style="margin-top: 15px;"></div>
-      <div id="searchResults" style="margin-top: 20px;"></div>
-    </div>
-  </div>
-</div>
 
-<!-- 图片预览弹窗 -->
-<div id="imageModal" class="modal">
-  <span class="modal-close">&times;</span>
-  <img id="modalImage" src="">
-</div>
+    <h2>快递单扫码测试</h2>
+    <div id="reader"></div>
 
-<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
+    <div id="result-container" id="resultContainer">
+        <p><strong>单号：</strong> <span id="scannedCode" style="color:red; font-size: 20px;"></span></p>
+        <p><strong>抓拍图片：</strong></p>
+        <div id="photoBucket"></div>
+    </div>
 
-<script>
-  // ========== Firebase 配置 ==========
-  const firebaseConfig = {
-    apiKey: "AIzaSyAlPdadUk-zBlBLMJFL-UYDEq8xYUKzfD4",
-    authDomain: "antkuaidi.firebaseapp.com",
-    databaseURL: "https://antkuaidi-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "antkuaidi",
-    storageBucket: "antkuaidi.firebasestorage.app",
-    messagingSenderId: "416372968766",
-    appId: "1:416372968766:web:2b80237f2e774f1067f06f"
-  };
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
-  const recordsRef = db.ref('tracking_records');
-  
-  // ========== 全局变量 ==========
-  let codeReader = null;
-  let isScanning = false;
-  let selectedDeviceId = null;
-  let videoElement = null;
-  
-  // 存储扫码记录 (含图片)
-  let scanRecords = [];  // { number, imageDataUrl, time, uploader }
-  
-  // 连续扫码模式
-  let continuousMode = true;
-  
-  // 防重复扫码 (同一单号3秒内不重复)
-  let lastScannedNumber = '';
-  let lastScanTime = 0;
-  
-  // 语言
-  let currentLang = localStorage.getItem('preferredLanguage') || 'cn';
-  const translations = {
-    cn: { scanNav: "扫码", uploadNav: "上传", searchNav: "查询", scanTitle: "扫码 + 自动存图", continuousMode: "连续扫码模式", startScan: "开始扫码", stopScan: "停止", clearList: "清空", scanResults: "扫码记录", batchUpload: "上传所有扫码记录", uploadTitle: "单号上传", uploadBtn: "上传", searchTitle: "单号查询", searchBtn: "搜索", noResults: "无结果", saveSuccess: "上传成功", exportBtn: "导出", totalCount: "单号总数", scanSuccess: "✅ 扫码成功", scanning: "扫描中..." },
-    mm: { scanNav: "စကင်န်", uploadNav: "တင်ရန်", searchNav: "ရှာရန်", scanTitle: "စကင်န် + ဓာတ်ပုံသိမ်းရန်", continuousMode: "စဉ်ဆက်မပြတ် စကင်န်", startScan: "စကင်န်စတင်ရန်", stopScan: "ရပ်ရန်", clearList: "ရှင်းလင်းရန်", scanResults: "စကင်န်မှတ်တမ်း", batchUpload: "အားလုံး တင်ရန်", uploadTitle: "ကုဒ်ထဲရန်", uploadBtn: "တင်မည်", searchTitle: "ကုဒ်ရှာရန်", searchBtn: "ရှာဖွေရန်", noResults: "မရှိပါ", saveSuccess: "အောင်မြင်ပါပြီ", exportBtn: "Excel ထုတ်ရန်", totalCount: "စုစုပေါင်း", scanSuccess: "✅ အောင်မြင်ပါပြီ", scanning: "စကင်န်နေသည်..." }
-  };
-  function t(key) { return translations[currentLang][key] || key; }
-  
-  // ========== 初始化扫码器 ==========
-  async function initScanner() {
-    codeReader = new ZXing.BrowserMultiFormatReader();
-    codeReader.timeBetweenDecodingAttempts = 300; // 300ms 间隔，提高连续扫码速度
-    
-    // 获取摄像头列表
-    const devices = await codeReader.listVideoInputDevices();
-    const select = document.getElementById('cameraSelect');
-    select.innerHTML = '';
-    devices.forEach((device, i) => {
-      const option = document.createElement('option');
-      option.value = device.deviceId;
-      option.text = device.label || `Camera ${i + 1}`;
-      select.appendChild(option);
-    });
-    if (devices.length > 0) {
-      selectedDeviceId = devices[0].deviceId;
-    }
-    
-    select.addEventListener('change', (e) => {
-      selectedDeviceId = e.target.value;
-      if (isScanning) {
-        // 如果正在扫描，重新启动
-        stopScanning();
-        startScanning();
-      }
-    });
-  }
-  
-  // 开始扫描
-  async function startScanning() {
-    if (!codeReader || !selectedDeviceId) {
-      alert("请先初始化摄像头");
-      return;
-    }
-    if (isScanning) return;
-    
-    try {
-      videoElement = document.getElementById('preview');
-      await codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, err) => {
-        if (result && isScanning) {
-          handleScanResult(result.text);
-        }
-        // 忽略错误，继续扫描
-      });
-      isScanning = true;
-      document.getElementById('scanStatus').innerHTML = `<i class="fas fa-camera"></i> ${t('scanning')}`;
-      document.getElementById('scanStatus').className = 'scan-status';
-    } catch (error) {
-      console.error("启动扫描失败:", error);
-      document.getElementById('scanStatus').innerHTML = '❌ 摄像头启动失败';
-      document.getElementById('scanStatus').className = 'scan-status error';
-    }
-  }
-  
-  // 停止扫描
-  function stopScanning() {
-    if (codeReader && isScanning) {
-      codeReader.reset();
-      isScanning = false;
-      document.getElementById('scanStatus').innerHTML = '⏸ 已停止';
-      document.getElementById('scanStatus').className = 'scan-status';
-    }
-  }
-  
-  // ========== 处理扫码结果 + 自动拍照保存 ==========
-  async function handleScanResult(number) {
-    const now = Date.now();
-    
-    // 防重复 (连续模式下，同一单号3秒内不重复添加)
-    if (continuousMode && lastScannedNumber === number && (now - lastScanTime) < 3000) {
-      console.log("重复扫码，已忽略:", number);
-      return;
-    }
-    
-    lastScannedNumber = number;
-    lastScanTime = now;
-    
-    // 显示扫码成功状态
-    const statusDiv = document.getElementById('scanStatus');
-    statusDiv.innerHTML = `✅ ${t('scanSuccess')}: ${number}`;
-    statusDiv.className = 'scan-status success';
-    setTimeout(() => {
-      if (isScanning) {
-        statusDiv.innerHTML = `<i class="fas fa-camera"></i> ${t('scanning')}`;
-        statusDiv.className = 'scan-status';
-      }
-    }, 1500);
-    
-    // ===== 核心功能：拍照保存面单图片 =====
-    const imageDataUrl = await capturePhotoFromVideo();
-    
-    // 添加到记录
-    const record = {
-      number: number,
-      imageDataUrl: imageDataUrl,
-      time: new Date().toLocaleString(),
-      uploader: document.getElementById('scanUploader').value.trim() || '未设置地点'
-    };
-    scanRecords.push(record);
-    
-    // 更新UI
-    updateScanList();
-    
-    // 如果不是连续模式，扫码一次后自动停止
-    if (!continuousMode) {
-      stopScanning();
-    }
-    
-    // 可选：播放提示音 (简单振动或蜂鸣)
-    if (navigator.vibrate) navigator.vibrate(100);
-  }
-  
-  // ===== 从视频流截图 =====
-  async function capturePhotoFromVideo() {
-    const video = document.getElementById('preview');
-    if (!video || video.readyState !== 4) {
-      // 如果视频未就绪，返回空白
-      return '';
-    }
-    
-    // 创建 canvas 截图
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
-    // 转为 JPEG，质量 0.8 (减小图片大小)
-    return canvas.toDataURL('image/jpeg', 0.8);
-  }
-  
-  // 更新扫码列表UI
-  function updateScanList() {
-    const container = document.getElementById('scanResultList');
-    const countSpan = document.getElementById('scanCount');
-    countSpan.textContent = scanRecords.length;
-    
-    if (scanRecords.length === 0) {
-      container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">暂无扫码记录</div>';
-      return;
-    }
-    
-    // 倒序显示 (最新的在上面)
-    const reversed = [...scanRecords].reverse();
-    container.innerHTML = reversed.map((record, idx) => `
-      <div class="scan-item" data-idx="${scanRecords.length - 1 - idx}">
-        <div style="flex:1">
-          <div class="scan-number">📦 ${record.number}</div>
-          <div class="scan-time">⏰ ${record.time}</div>
-          <div class="scan-time">📍 ${record.uploader}</div>
-        </div>
-        ${record.imageDataUrl ? `<img src="${record.imageDataUrl}" class="img-preview" onclick="showImageModal('${record.imageDataUrl}')">` : '<div class="img-preview" style="background:#ddd;display:flex;align-items:center;justify-content:center;">无图</div>'}
-      </div>
-    `).join('');
-  }
-  
-  // 图片预览
-  window.showImageModal = function(imgSrc) {
-    const modal = document.getElementById('imageModal');
-    const modalImg = document.getElementById('modalImage');
-    modalImg.src = imgSrc;
-    modal.classList.add('active');
-  };
-  
-  // 清空扫码记录
-  function clearScanList() {
-    if (confirm('清空所有未上传的扫码记录？')) {
-      scanRecords = [];
-      updateScanList();
-    }
-  }
-  
-  // ===== 批量上传到 Firebase =====
-  async function batchUploadToFirebase() {
-    if (scanRecords.length === 0) {
-      alert('没有可上传的记录');
-      return;
-    }
-    
-    const uploader = document.getElementById('scanUploader').value.trim();
-    if (!uploader) {
-      alert('请填写上传地点');
-      return;
-    }
-    
-    // 更新所有记录的 uploader
-    scanRecords.forEach(r => r.uploader = uploader);
-    
-    let successCount = 0;
-    let duplicateCount = 0;
-    
-    // 获取现有单号，避免重复
-    const snap = await recordsRef.once('value');
-    const existingNumbers = snap.val() ? new Set(Object.values(snap.val()).map(r => String(r.number))) : new Set();
-    
-    for (const record of scanRecords) {
-      if (existingNumbers.has(record.number)) {
-        duplicateCount++;
-        continue;
-      }
-      
-      const last4 = record.number.length >= 4 ? record.number.slice(-4) : record.number;
-      await recordsRef.push({
-        number: record.number,
-        last4: last4,
-        uploader: record.uploader,
-        upload_time: record.time,
-        imageDataUrl: record.imageDataUrl  // 保存面单图片
-      });
-      successCount++;
-      existingNumbers.add(record.number);
-    }
-    
-    alert(`上传完成！\n成功: ${successCount} 个\n重复跳过: ${duplicateCount} 个`);
-    
-    // 清空扫码记录
-    scanRecords = [];
-    updateScanList();
-    
-    // 刷新总数显示
-    updateTotalCount();
-  }
-  
-  // 更新总数显示
-  async function updateTotalCount() {
-    const snap = await recordsRef.once('value');
-    document.getElementById('totalCount').textContent = snap.val() ? Object.keys(snap.val()).length : 0;
-  }
-  
-  // ========== 原有功能：上传页面 ==========
-  document.getElementById('uploadBtn').addEventListener('click', async function() {
-    const uploader = document.getElementById('uploader').value.trim();
-    const text = document.getElementById('trackingNumbers').value.trim();
-    if (!uploader || !text) return alert('请填写地点和单号');
-    this.disabled = true;
-    const nums = [...new Set(text.split('\n').map(s => s.trim()).filter(s => s))];
-    const now = new Date().toLocaleString();
-    try {
-      const snap = await recordsRef.once('value');
-      const existing = snap.val() ? new Set(Object.values(snap.val()).map(r => String(r.number))) : new Set();
-      for (let num of nums) {
-        if (!existing.has(num)) {
-          const last4 = num.length >= 4 ? num.slice(-4) : num;
-          await recordsRef.push({ number: num, last4: last4, uploader: uploader, upload_time: now });
-        }
-      }
-      alert(t('saveSuccess'));
-      document.getElementById('trackingNumbers').value = '';
-      updateTotalCount();
-    } catch (e) { alert("上传失败"); }
-    finally { this.disabled = false; }
-  });
-  
-  // 查询功能
-  document.getElementById('searchBtn').addEventListener('click', performSearch);
-  async function performSearch() {
-    let inputVal = document.getElementById('searchKey').value.trim();
-    if (inputVal.length < 4) return alert('最少输入4位');
-    const queryKey = inputVal.length > 4 ? inputVal.slice(-4) : inputVal;
-    saveSearchHistory(inputVal);
-    const resDiv = document.getElementById('searchResults');
-    resDiv.innerHTML = "";
-    try {
-      const snap = await recordsRef.orderByChild('last4').equalTo(queryKey).once('value');
-      let results = Object.values(snap.val() || {});
-      if (inputVal.length > 4) {
-        results = results.filter(item => String(item.number).includes(inputVal));
-      }
-      if (results.length === 0) {
-        resDiv.innerHTML = `<div class="record">${t('noResults')}</div>`;
-      } else {
-        results.reverse().forEach(r => {
-          const div = document.createElement('div');
-          div.className = 'record';
-          div.innerHTML = `<div><strong>单号:</strong> ${r.number}</div>
-                           <div><strong>地点:</strong> ${r.uploader}</div>
-                           <div><strong>时间:</strong> ${r.upload_time}</div>
-                           ${r.imageDataUrl ? `<div><img src="${r.imageDataUrl}" style="max-width:100px;border-radius:8px;cursor:pointer;" onclick="showImageModal('${r.imageDataUrl}')"></div>` : ''}`;
-          resDiv.appendChild(div);
-        });
-      }
-    } catch (e) { alert("查询失败"); }
-  }
-  
-  // 导出Excel
-  document.getElementById('exportExcelBtn').addEventListener('click', async function() {
-    const snap = await recordsRef.once('value');
-    const data = snap.val();
-    if (!data) return;
-    let csv = "\uFEFF单号,地点,时间\n";
-    Object.values(data).reverse().forEach(r => { csv += `${r.number},${r.uploader},${r.upload_time}\n`; });
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `快递_${new Date().toLocaleDateString()}.csv`;
-    a.click();
-  });
-  
-  // 搜索历史
-  function saveSearchHistory(key) {
-    let history = JSON.parse(localStorage.getItem('searchHistory') || '[]');
-    history = [key, ...history.filter(i => i !== key)].slice(0, 5);
-    localStorage.setItem('searchHistory', JSON.stringify(history));
-    displayHistory();
-  }
-  function displayHistory() {
-    const container = document.getElementById('searchHistory');
-    const history = JSON.parse(localStorage.getItem('searchHistory') || '[]');
-    container.innerHTML = history.map(h => `<span class="search-tag" onclick="document.getElementById('searchKey').value='${h}';performSearch()">${h}</span>`).join('');
-  }
-  window.performSearch = performSearch;
-  
-  // 导航切换
-  document.querySelectorAll('.nav-link').forEach(l => {
-    l.addEventListener('click', function(e) {
-      e.preventDefault();
-      document.querySelectorAll('.nav-link, .page-container').forEach(el => el.classList.remove('active'));
-      this.classList.add('active');
-      document.getElementById(this.dataset.page).classList.add('active');
-    });
-  });
-  
-  // 语言切换
-  document.querySelectorAll('.lang-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-      currentLang = this.dataset.lang;
-      localStorage.setItem('preferredLanguage', currentLang);
-      translatePage();
-    });
-  });
-  function translatePage() {
-    document.querySelectorAll('[data-translate]').forEach(el => el.textContent = t(el.getAttribute('data-translate')));
-  }
-  
-  // 连续模式开关
-  document.getElementById('continuousToggle').addEventListener('click', function() {
-    continuousMode = !continuousMode;
-    if (continuousMode) {
-      this.classList.add('active');
-    } else {
-      this.classList.remove('active');
-    }
-  });
-  
-  // 按钮绑定
-  document.getElementById('startScanBtn').addEventListener('click', startScanning);
-  document.getElementById('stopScanBtn').addEventListener('click', stopScanning);
-  document.getElementById('clearListBtn').addEventListener('click', clearScanList);
-  document.getElementById('batchUploadBtn').addEventListener('click', batchUploadToFirebase);
-  
-  // 图片弹窗关闭
-  document.querySelector('.modal-close').addEventListener('click', () => {
-    document.getElementById('imageModal').classList.remove('active');
-  });
-  document.getElementById('imageModal').addEventListener('click', (e) => {
-    if (e.target === document.getElementById('imageModal')) {
-      document.getElementById('imageModal').classList.remove('active');
-    }
-  });
-  
-  // 初始化
-  initScanner();
-  updateTotalCount();
-  translatePage();
-  displayHistory();
-</script>
+    <script>
+        const html5QrCode = new Html5Qrcode("reader");
+        const resultContainer = document.getElementById('result-container');
+        const scannedCodeText = document.getElementById('scannedCode');
+        const photoBucket = document.getElementById('photoBucket');
+
+        const config = { 
+            fps: 10,  // 每秒扫描10次
+            qrbox: { width: 250, height: 150 }, // 设置扫描框大小（适合条形码）
+            aspectRatio: 1.0
+        };
+
+        // 成功扫码后的逻辑
+        const onScanSuccess = (decodedText, decodedResult) => {
+            // 1. 停止扫描（模拟圆通扫完一个就停止，或者你可以设置继续扫）
+            // html5QrCode.stop(); 
+
+            // 2. 显示结果
+            resultContainer.style.display = 'block';
+            scannedCodeText.innerText = decodedText;
+
+            // 3. 自动抓拍当前画面
+            const video = document.querySelector('video');
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // 4. 将抓拍的照片显示出来
+            const img = new Image();
+            img.src = canvas.toDataURL('image/jpeg');
+            photoBucket.innerHTML = ''; // 清空旧图
+            photoBucket.appendChild(img);
+
+            console.log("扫码成功并已抓拍");
+        };
+
+        // 启动摄像头
+        html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
+    </script>
 </body>
 </html>
