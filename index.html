@@ -1,156 +1,570 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>快递管理系统 - GitHub版</title>
-  <script src="https://unpkg.com/html5-qrcode"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    /* 极致简约风格 */
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, sans-serif; background: #f2f2f7; color: #1c1c1e; padding-bottom: 50px; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
-    h2 { font-size: 20px; margin-bottom: 20px; text-align: center; color: #007aff; }
-    
-    /* 输入框与按钮 */
-    label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; }
-    input, textarea { width: 100%; padding: 12px; border: 1px solid #d1d1d6; border-radius: 10px; font-size: 16px; background: #fafafa; margin-bottom: 15px; outline: none; }
-    .btn { display: block; width: 100%; padding: 15px; border-radius: 12px; font-size: 16px; font-weight: 600; border: none; cursor: pointer; transition: 0.2s; text-align: center; }
-    .btn-primary { background: #007aff; color: white; }
-    .btn-scan { background: #5856d6; color: white; margin-bottom: 10px; }
-    
-    /* 全屏扫码界面 */
-    #scanner-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; flex-direction: column; }
-    .scan-header { padding: 20px; display: flex; justify-content: space-between; align-items: center; color: white; background: rgba(0,0,0,0.5); }
-    #reader { flex: 1; width: 100%; }
-    .scan-tip { padding: 15px; color: #aaa; font-size: 12px; text-align: center; background: #000; }
-    .count-tag { background: #ff3b30; padding: 2px 8px; border-radius: 10px; font-size: 14px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>极速扫码追踪 - 快递助手</title>
+    <!-- 使用开源库 html5-qrcode 的最新稳定版 -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/dist/html5-qrcode.min.js"></script>
+    <!-- 可选字体与图标，提升视觉体验 (Font Awesome) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none; /* 避免移动端长按菜单干扰，但不影响输入 */
+        }
+
+        body {
+            background: linear-gradient(145deg, #f0f4ff 0%, #e6edfc 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            padding: 20px;
+        }
+
+        /* 主卡片容器 */
+        .app-container {
+            max-width: 600px;
+            width: 100%;
+            background: rgba(255,255,255,0.92);
+            backdrop-filter: blur(2px);
+            border-radius: 48px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.12), 0 8px 16px rgba(0,0,0,0.05);
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        /* 头部样式 */
+        .header {
+            background: #1e2b3c;
+            color: white;
+            padding: 24px 28px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+        .header h1 i {
+            font-size: 2rem;
+            color: #ffc857;
+        }
+        .header p {
+            font-size: 0.85rem;
+            opacity: 0.85;
+            margin-top: 8px;
+        }
+
+        /* 扫描区域盒子 */
+        .scanner-card {
+            margin: 24px 20px 16px 20px;
+            background: #ffffff;
+            border-radius: 32px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+            overflow: hidden;
+            transition: 0.2s;
+        }
+
+        /* 取景器容器 */
+        #qr-reader {
+            width: 100%;
+            background: #000;
+            border-radius: 28px;
+            overflow: hidden;
+        }
+        /* 覆盖html5-qrcode默认的一些样式，让相机预览更圆润 */
+        #qr-reader__dashboard_section_csr span, #qr-reader__dashboard_section_fsr span {
+            font-size: 0.85rem;
+        }
+
+        /* 自定义控制栏，让按钮好看一点 */
+        .scan-controls {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 16px 20px 20px 20px;
+            background: white;
+            border-top: 1px solid #eff3f8;
+        }
+        .btn {
+            flex: 1;
+            background: #f0f4fa;
+            border: none;
+            padding: 12px 0;
+            border-radius: 60px;
+            font-weight: 600;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+            color: #1e2b3c;
+        }
+        .btn-primary {
+            background: #2c5f8a;
+            color: white;
+            box-shadow: 0 4px 8px rgba(44,95,138,0.2);
+        }
+        .btn-primary i {
+            color: white;
+        }
+        .btn-primary:active {
+            transform: scale(0.97);
+            background: #1e4565;
+        }
+        .btn-outline {
+            border: 1px solid #cfdfed;
+            background: white;
+        }
+        .btn-outline:active {
+            background: #eef3fc;
+            transform: scale(0.97);
+        }
+        .btn-danger {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        .btn-danger:active {
+            background: #fecaca;
+        }
+
+        /* 快递单号展示卡片 */
+        .tracking-area {
+            background: white;
+            margin: 8px 20px 24px 20px;
+            border-radius: 28px;
+            padding: 20px;
+            box-shadow: 0 6px 14px rgba(0,0,0,0.03);
+            border: 1px solid #eef2f9;
+        }
+        .info-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            color: #5e7f9e;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tracking-number {
+            font-size: 1.6rem;
+            font-weight: 800;
+            font-family: monospace;
+            background: #f8fafd;
+            padding: 14px 18px;
+            border-radius: 24px;
+            word-break: break-all;
+            color: #0a2b3e;
+            border: 1px solid #e2edf7;
+            margin-bottom: 20px;
+            letter-spacing: 0.5px;
+        }
+        .logistics-status {
+            background: #eef6ff;
+            border-radius: 20px;
+            padding: 16px;
+            margin-top: 8px;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #2c5f8a;
+            color: white;
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+        .status-text {
+            font-size: 0.95rem;
+            color: #1f3a4b;
+            line-height: 1.4;
+        }
+        .demo-note {
+            font-size: 0.7rem;
+            color: #7c8ea0;
+            text-align: center;
+            margin-top: 16px;
+            border-top: 1px dashed #dce5ef;
+            padding-top: 14px;
+        }
+        .footer {
+            text-align: center;
+            font-size: 0.7rem;
+            color: #6d8aac;
+            padding: 18px 20px 24px;
+            background: #fafcff;
+        }
+        i {
+            color: #4c6f8c;
+        }
+        .btn i {
+            pointer-events: none;
+        }
+        /* 提示浮动小窗 */
+        .toast-msg {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e2b3cee;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 60px;
+            font-size: 0.85rem;
+            z-index: 1000;
+            backdrop-filter: blur(8px);
+            pointer-events: none;
+            transition: 0.2s;
+            opacity: 0;
+        }
+        .toast-msg.show {
+            opacity: 1;
+        }
+        @media (max-width: 500px) {
+            .tracking-number {
+                font-size: 1.2rem;
+                padding: 10px 14px;
+            }
+            .btn {
+                padding: 10px 0;
+                font-size: 0.85rem;
+            }
+        }
+    </style>
 </head>
 <body>
-
-  <div id="scanner-overlay">
-    <div class="scan-header">
-      <span>已扫单号: <span id="scanCount" class="count-tag">0</span></span>
-      <button onclick="stopScanning()" style="background:#34c759; border:none; color:white; padding:8px 15px; border-radius:8px; font-weight:bold;">完成返回</button>
+<div class="app-container">
+    <div class="header">
+        <h1>
+            <i class="fas fa-qrcode"></i> 
+            极速扫码·快递追踪
+        </h1>
+        <p>对准快递单条码 / 二维码，自动识别单号</p>
     </div>
-    <div id="reader"></div>
-    <div class="scan-tip">保持 15-20cm 距离，对准条形码</div>
-  </div>
 
-  <div class="container">
-    <div class="card">
-      <h2>单号上传</h2>
-      <label>上传地点</label>
-      <input type="text" id="uploader" placeholder="输入地点">
-      
-      <label>单号列表</label>
-      <button class="btn btn-scan" onclick="startScanning()">
-        <i class="fas fa-camera"></i> 点击开始扫码
-      </button>
-      <textarea id="trackingNumbers" placeholder="每行一个单号" rows="8"></textarea>
-      
-      <button class="btn btn-primary" id="uploadBtn">立即上传到数据库</button>
+    <div class="scanner-card">
+        <!-- html5-qrcode 扫描器会挂载到此div -->
+        <div id="qr-reader"></div>
+        <!-- 自定义按钮区域，增强控制 -->
+        <div class="scan-controls">
+            <button id="start-camera-btn" class="btn btn-primary"><i class="fas fa-camera"></i> 开启摄像头</button>
+            <button id="stop-camera-btn" class="btn btn-outline"><i class="fas fa-stop"></i> 停止扫描</button>
+            <label for="file-input" class="btn btn-outline" style="cursor:pointer;"><i class="fas fa-image"></i> 相册图片</label>
+            <input type="file" id="file-input" accept="image/*" capture="environment" style="display: none;">
+        </div>
     </div>
-  </div>
 
-  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
+    <div class="tracking-area" id="trackingArea">
+        <div class="info-title">
+            <i class="fas fa-box-open"></i> 最近扫描结果
+        </div>
+        <div class="tracking-number" id="trackingNumberDisplay">
+            等待扫码...
+        </div>
+        <div class="logistics-status" id="logisticsInfo">
+            <div class="status-badge">
+                <i class="fas fa-sync-alt"></i> 待识别单号
+            </div>
+            <div class="status-text">
+                请使用摄像头对准快递单上的条形码或二维码，系统将自动识别并模拟物流信息。
+            </div>
+        </div>
+        <div class="demo-note">
+            <i class="fas fa-info-circle"></i> 支持快递常见条码：QR Code、CODE_128、CODE_39、EAN-13等
+        </div>
+    </div>
+    <div class="footer">
+        <i class="fas fa-code-branch"></i> 开源项目 html5-qrcode · 本地识别，不上传任何数据
+    </div>
+</div>
+<div id="toastMsg" class="toast-msg">✨ 提示信息</div>
 
-  <script>
-    // 你的 Firebase 配置
-    const firebaseConfig = {
-      apiKey: "AIzaSyAlPdadUk-zBlBLMJFL-UYDEq8xYUKzfD4",
-      authDomain: "antkuaidi.firebaseapp.com",
-      databaseURL: "https://antkuaidi-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "antkuaidi",
-      storageBucket: "antkuaidi.firebasestorage.app",
-      messagingSenderId: "416372968766",
-      appId: "1:416372968766:web:2b80237f2e774f1067f06f"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const recordsRef = db.ref('tracking_records');
+<script>
+    // ------------------- 全局变量 -------------------
+    let html5QrCode = null;          // 保存 Html5Qrcode 实例
+    let isScanning = false;          // 摄像头扫描状态
+    let currentCameraId = null;      // 记住当前摄像头 (可选)
+    let lastDecodedText = '';        // 防重复触发相同单号 (避免连续弹)
 
-    let html5QrCode;
-    let tempCodes = new Set();
+    // 获取DOM元素
+    const qrReaderDiv = document.getElementById('qr-reader');
+    const startBtn = document.getElementById('start-camera-btn');
+    const stopBtn = document.getElementById('stop-camera-btn');
+    const fileInput = document.getElementById('file-input');
+    const trackingNumberSpan = document.getElementById('trackingNumberDisplay');
+    const logisticsInfoDiv = document.getElementById('logisticsInfo');
+    const toastEl = document.getElementById('toastMsg');
 
-    // 启动扫码
-    async function startScanning() {
-        document.getElementById('scanner-overlay').style.display = 'flex';
-        tempCodes.clear();
-        document.getElementById('scanCount').innerText = '0';
+    // 简单的toast提示
+    function showToast(msg, duration = 2000) {
+        toastEl.innerText = msg;
+        toastEl.classList.add('show');
+        setTimeout(() => {
+            toastEl.classList.remove('show');
+        }, duration);
+    }
 
-        html5QrCode = new Html5Qrcode("reader");
+    // 模拟快递物流查询 (前端演示，实际可对接API)
+    function simulateLogistics(trackingNumber) {
+        // 简单模拟不同快递公司的风格，让演示有趣
+        const companies = ['顺丰速运', '中通快递', '圆通速递', '韵达快递', '极兔快递', '京东物流', 'EMS'];
+        // 随机根据单号hash选取一个公司让体验生动
+        let hash = 0;
+        for(let i = 0; i < trackingNumber.length; i++) {
+            hash = ((hash<<5)-hash)+trackingNumber.charCodeAt(i);
+            hash |= 0;
+        }
+        const companyIndex = Math.abs(hash) % companies.length;
+        const company = companies[companyIndex];
         
+        // 模拟物流状态: 根据单号奇偶或字符产生不同进度，让每次扫描感觉真实
+        let status = '';
+        let steps = [];
+        const lastDigit = trackingNumber.charCodeAt(trackingNumber.length-1) % 10;
+        if (lastDigit < 3) {
+            status = '📦 已揽收，等待发往转运中心';
+            steps = [`${new Date().toLocaleDateString()} 14:20:00 [${company}] 您的快件已被揽收，即将发往【华东转运中心】`];
+        } else if (lastDigit < 6) {
+            status = '🚚 运输中 · 已到达市级分拨中心';
+            steps = [
+                `${new Date().toLocaleDateString()} 08:15:00 [${company}] 快件已到达【杭州市分拨中心】`,
+                `${new Date().toLocaleDateString()} 06:30:00 [${company}] 快件离开【上海转运中心】，发往下一站`
+            ];
+        } else if (lastDigit < 9) {
+            status = '🏠 派送中 · 快递员正在为您派送';
+            steps = [
+                `${new Date().toLocaleDateString()} 10:20:00 [${company}] 快件已到达【${company}城南营业部】`,
+                `${new Date().toLocaleDateString()} 09:10:00 [${company}] 快件交由快递员【张师傅】派送，电话尾号1234`
+            ];
+        } else {
+            status = '✅ 已签收 · 感谢使用极速追踪';
+            steps = [
+                `${new Date().toLocaleDateString()} 18:30:00 [${company}] 您的快件已签收，签收人：本人`,
+                `${new Date().toLocaleDateString()} 15:20:00 [${company}] 快件已放入快递柜/代收点`
+            ];
+        }
+        
+        // 构建HTML
+        let stepsHtml = `<div style="margin-top: 12px; border-left: 2px solid #cbdde9; padding-left: 14px;">`;
+        steps.forEach(step => {
+            stepsHtml += `<div style="font-size: 0.75rem; color: #3a5e7a; margin-bottom: 8px;"><i class="fas fa-circle" style="font-size: 6px; vertical-align: middle; margin-right: 8px;"></i> ${step}</div>`;
+        });
+        stepsHtml += `</div>`;
+        
+        const statusIcon = status.includes('签收') ? 'fa-check-circle' : (status.includes('派送') ? 'fa-truck-fast' : 'fa-rotate-right');
+        const statusColor = status.includes('签收') ? '#2c7a4d' : (status.includes('派送') ? '#e68a2e' : '#2c5f8a');
+        
+        return `
+            <div class="status-badge" style="background: ${statusColor};">
+                <i class="fas ${statusIcon}"></i> ${company} · 实时追踪
+            </div>
+            <div class="status-text">
+                <strong style="font-size:1rem;">${status}</strong>
+                ${stepsHtml}
+                <div style="margin-top: 12px; font-size:0.7rem; background:#F2F6FC; padding:6px 12px; border-radius: 20px; color:#4a627a;">
+                    <i class="fas fa-clock"></i> 最后更新: ${new Date().toLocaleString()}
+                </div>
+                <div style="margin-top: 8px; font-size:0.7rem; color:#8ca3bc;">
+                    * 此为演示物流信息，扫码单号仅用于前端展示。
+                </div>
+            </div>
+        `;
+    }
+
+    // 更新界面显示单号和物流模拟
+    function updateTrackingUI(decodedText) {
+        if (!decodedText || decodedText.trim() === '') return;
+        // 防止同一个单号在短时间内多次刷新UI（但依然会触发回调）
+        if (lastDecodedText === decodedText) {
+            // 相同单号不重复更新，但是为了避免用户体验疑惑，如果完全相同就提示已经识别
+            showToast(`已识别相同单号: ${decodedText.substring(0, 16)}`, 1200);
+            return;
+        }
+        lastDecodedText = decodedText;
+        // 显示单号，截断超长单号但保持完整显示
+        trackingNumberSpan.innerText = decodedText;
+        // 生成模拟物流信息
+        const logisticsHtml = simulateLogistics(decodedText);
+        logisticsInfoDiv.innerHTML = logisticsHtml;
+        showToast(`✅ 扫描成功！单号：${decodedText.substring(0, 20)}${decodedText.length>20?'…':''}`, 1800);
+        
+        // 可选: 震动一下（移动端微小反馈，不影响PC）
+        if (navigator.vibrate) navigator.vibrate(50);
+    }
+
+    // 核心回调：扫描成功时的处理
+    function onScanSuccess(decodedText, decodedResult) {
+        // 扫描到内容立即更新UI
+        if (decodedText) {
+            updateTrackingUI(decodedText);
+            // 根据官方文档，可以停止扫描一小段时间避免重复触发? 但html5-qrcode本身在连续帧会持续回调，通过lastDecodedText避免重复UI更新即可。
+            // 如果希望扫描一次后自动暂停摄像头（可选），但为方便连续扫描多个包裹，不自动停。
+            // 增加一个轻提示但并不停止扫描，用户体验更好。但想做得专业一点也可以。
+        }
+    }
+    
+    // 扫描失败（一般解码失败会频繁触发，我们简单忽略，但避免log过多）
+    function onScanFailure(error) {
+        // 静默失败，一般由于没有二维码/条码在取景器内。不做频繁提示。
+        // 可选择性打印调试，生产环境注释。
+        // console.log("scan fail", error);
+    }
+
+    // 初始化摄像头扫描（使用 Html5Qrcode 类，便于控制启停）
+    async function startCameraScanning() {
+        if (isScanning) {
+            showToast("扫描器已经在运行中", 1000);
+            return;
+        }
+        // 如果之前存在实例但没有在扫描，或者实例未初始化，则新建
+        if (!html5QrCode) {
+            html5QrCode = new Html5Qrcode("qr-reader");
+        }
+        // 配置：高帧率更快识别，并设定矩形扫描区（可以设置qrbox占80%让扫描专注）
         const config = {
-            fps: 20, // 提高帧率
-            qrbox: { width: 300, height: 150 }, // 针对条形码的长方形框
-            aspectRatio: 1.0
+            fps: 12,                 // 每秒12帧，识别更流畅
+            qrbox: { width: 280, height: 200 },  // 扫描框大小，可适配多数条码
+            aspectRatio: 1.0,       // 默认正方形预览，有些条形码需要更宽，但让画面不扭曲好一些
+            rememberLastUsedCamera: true,
+            supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA] // 仅摄像头
         };
-
+        
         try {
+            // 使用后置摄像头优先（环境模式），移动端更合适扫描快递单
+            const cameraConstraints = { facingMode: "environment" };
             await html5QrCode.start(
-                { facingMode: "environment" }, 
-                config, 
-                (decodedText) => {
-                    if(!tempCodes.has(decodedText)) {
-                        tempCodes.add(decodedText);
-                        document.getElementById('scanCount').innerText = tempCodes.size;
-                        if(navigator.vibrate) navigator.vibrate(100); // 震动反馈
-                    }
-                }
+                cameraConstraints,
+                config,
+                onScanSuccess,
+                onScanFailure
             );
+            isScanning = true;
+            showToast("📷 摄像头已开启，对准快递单条码区域", 1500);
         } catch (err) {
-            alert("摄像头开启失败：请确认是 HTTPS 环境且已授予权限。");
-            stopScanning();
-        }
-    }
-
-    // 停止并填入数据
-    async function stopScanning() {
-        if (html5QrCode) {
-            await html5QrCode.stop().catch(e => console.log(e));
-        }
-        const textarea = document.getElementById('trackingNumbers');
-        const existing = textarea.value.trim();
-        const joined = Array.from(tempCodes).join('\n');
-        textarea.value = existing ? existing + '\n' + joined : joined;
-        document.getElementById('scanner-overlay').style.display = 'none';
-    }
-
-    // 上传逻辑
-    document.getElementById('uploadBtn').onclick = async function() {
-        const loc = document.getElementById('uploader').value.trim();
-        const codes = document.getElementById('trackingNumbers').value.trim();
-        if(!loc || !codes) return alert("请填写地点和单号");
-        
-        this.disabled = true;
-        this.innerText = "上传中...";
-        
-        const list = codes.split('\n').map(s => s.trim()).filter(s => s);
-        const now = new Date().toLocaleString();
-        
-        try {
-            for(let num of list) {
-                await recordsRef.push({
-                    number: num,
-                    last4: num.slice(-4),
-                    uploader: loc,
-                    upload_time: now
-                });
+            console.error("启动摄像头失败", err);
+            showToast("无法启动摄像头，请检查权限或更换浏览器", 2000);
+            // 尝试降级使用普通摄像头
+            try {
+                if (html5QrCode && !isScanning) {
+                    await html5QrCode.start(
+                        { facingMode: "user" },
+                        config,
+                        onScanSuccess,
+                        onScanFailure
+                    );
+                    isScanning = true;
+                    showToast("已切换到前置摄像头，请尝试扫描", 1500);
+                }
+            } catch (fallbackErr) {
+                showToast("授权摄像头失败，您可以使用「相册图片」识别", 2000);
             }
-            alert("上传成功！");
-            document.getElementById('trackingNumbers').value = "";
-        } catch(e) {
-            alert("失败: " + e.message);
-        } finally {
-            this.disabled = false;
-            this.innerText = "立即上传到数据库";
         }
-    };
-  </script>
+    }
+    
+    // 停止扫描，清理摄像头资源
+    async function stopCameraScanning() {
+        if (!html5QrCode || !isScanning) {
+            showToast("当前没有活动扫描", 800);
+            return;
+        }
+        try {
+            await html5QrCode.stop();
+            isScanning = false;
+            showToast("扫描器已停止，摄像头已关闭", 1000);
+        } catch (err) {
+            console.warn("停止扫描出错", err);
+            isScanning = false;
+        }
+    }
+    
+    // 处理上传图片（支持本地文件扫码）
+    async function handleFileScan(imageFile) {
+        if (!imageFile) return;
+        // 如果摄像头正在运行，暂时不停也可以，但为了避免干扰，最好显示一下图片解析中
+        showToast("正在解析图片中的条码/二维码...", 1000);
+        // 临时生成一个Html5Qrcode实例用于文件扫描（可复用主实例但需要注意方法）
+        let fileScanner = null;
+        try {
+            // 我们使用现有的html5QrCode 如果存在，其scanFile方法可用；若不存在则新建临时实例
+            if (!html5QrCode) {
+                fileScanner = new Html5Qrcode("qr-reader");
+            } else {
+                fileScanner = html5QrCode;
+            }
+            // 调用 scanFile 方法，返回Promise
+            const decodedText = await fileScanner.scanFile(imageFile, /* showImage= */ true);
+            if (decodedText) {
+                updateTrackingUI(decodedText);
+                showToast(`📄 图片识别成功: ${decodedText.substring(0, 24)}`, 2000);
+            } else {
+                showToast("图片中未识别到有效单号/条码", 1500);
+            }
+        } catch (error) {
+            console.error("文件扫描失败", error);
+            showToast("识别失败，请确保图片清晰包含条码或二维码", 2000);
+        } finally {
+            // 如果是临时创建的实例且摄像头未开启，不需要销毁；如果摄像头没运行就不用额外处理
+            // 但是如果之前没摄像头且创建了临时实例且并未调用start，则不用停止。
+            if (fileScanner && !isScanning && fileScanner !== html5QrCode) {
+                // 不需要额外动作，避免影响
+            }
+        }
+    }
+    
+    // 文件选择监听
+    fileInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            handleFileScan(file);
+        }
+        fileInput.value = ''; // 允许重复上传同一个文件
+    });
+    
+    // 绑定按钮事件
+    startBtn.addEventListener('click', () => {
+        startCameraScanning();
+    });
+    stopBtn.addEventListener('click', () => {
+        stopCameraScanning();
+    });
+    
+    // 自动初始化：为了体验，页面加载时默认尝试开启摄像头（如果用户允许）
+    window.addEventListener('load', () => {
+        // 稍作延迟，让UI完全加载
+        setTimeout(() => {
+            // 自动请求摄像头，提高易用性（静默请求，大部分用户会允许）
+            startCameraScanning().catch(e => {
+                console.log("自动启动失败，用户可手动点击开启");
+                showToast("点击「开启摄像头」以扫描快递单", 2000);
+            });
+        }, 500);
+    });
+    
+    // 页面关闭前停止摄像头释放资源（非必须但良好习惯）
+    window.addEventListener('beforeunload', () => {
+        if (html5QrCode && isScanning) {
+            html5QrCode.stop().catch(e=>console.log);
+        }
+    });
+    
+    // 额外: 提示支持条码类型，演示中可以演示快递单上的CODE128
+    console.log("快递扫码工具已启动 | 基于html5-qrcode开源库");
+</script>
 </body>
 </html>
